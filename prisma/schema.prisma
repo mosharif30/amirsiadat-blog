@@ -1,0 +1,103 @@
+// To use PostgreSQL instead of SQLite see "Switching to PostgreSQL" in README.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// Admin dashboard accounts.
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  name           String?
+  passwordHash   String
+  /// Bumped on password change / "sign out everywhere" to revoke existing sessions.
+  sessionVersion Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Author {
+  id        String   @id @default(cuid())
+  name      String
+  bio       String?
+  photoId   String?
+  photo     Media?   @relation("AuthorPhoto", fields: [photoId], references: [id], onDelete: SetNull)
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  /// Sidebar order (ascending).
+  position  Int      @default(0)
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id              String     @id @default(cuid())
+  title           String
+  slug            String     @unique
+  excerpt         String
+  /// Markdown (CommonMark + GFM, inline HTML allowed and sanitized on render).
+  content         String
+  status          PostStatus @default(DRAFT)
+  featured        Boolean    @default(false)
+  /// Date shown on the post. Posts with a future date stay hidden until then.
+  publishedAt     DateTime?
+  readingMinutes  Int        @default(1)
+  wordCount       Int        @default(0)
+  seoTitle        String?
+  seoDescription  String?
+  featuredImageId String?
+  featuredImage   Media?     @relation("PostFeaturedImage", fields: [featuredImageId], references: [id], onDelete: SetNull)
+  authorId        String?
+  author          Author?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  categories      Category[]
+  comments        Comment[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  comment   String
+  approved  Boolean  @default(false)
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+/// Uploaded files. `key` is the path inside the storage backend, `url` is its public URL.
+model Media {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  url          String   @unique
+  filename     String
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  alt          String?
+  featuredIn   Post[]   @relation("PostFeaturedImage")
+  authorPhotos Author[] @relation("AuthorPhoto")
+  createdAt    DateTime @default(now())
+}

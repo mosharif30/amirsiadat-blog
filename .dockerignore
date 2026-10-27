@@ -1,0 +1,11 @@
+/.git
+/.github
+/node_modules
+/.next
+/generated
+/data
+/storage
+/.env
+/.env.*
+!/.env.example
+*.tsbuildinfo
