@@ -8,17 +8,22 @@ import { getStorage } from "@/lib/storage";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
-export async function updateMediaAlt(id: string, alt: string): Promise<ActionResult> {
+const idSchema = z.string().min(1).max(64);
+
+export async function updateMediaAlt(mediaId: string, alt: string): Promise<ActionResult> {
   await requireAdmin();
+  const id = idSchema.parse(mediaId);
   const value = z.string().trim().max(300).parse(alt);
-  await db.media.update({ where: { id }, data: { alt: value || null } });
+  const { count } = await db.media.updateMany({ where: { id }, data: { alt: value || null } });
+  if (count === 0) return { ok: false, error: "This file no longer exists." };
   revalidatePath("/admin/media");
   return { ok: true };
 }
 
 /** Deletes a file unless a post still uses it as cover or inside its content. */
-export async function deleteMedia(id: string): Promise<ActionResult> {
+export async function deleteMedia(mediaId: string): Promise<ActionResult> {
   await requireAdmin();
+  const id = idSchema.parse(mediaId);
   const media = await db.media.findUnique({ where: { id } });
   if (!media) return { ok: true };
 

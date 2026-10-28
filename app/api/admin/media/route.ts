@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAdmin, UnauthorizedError } from "@/lib/auth/session";
 import { saveUpload, UploadError } from "@/lib/media";
+import { isCrossOrigin } from "@/lib/request";
 
 /** Image upload endpoint used by the admin editor and media library (multipart field "file"). */
 export async function POST(request: Request) {
   // Cookies are SameSite=Lax, but route handlers don't get the Server Action origin check: do it here.
-  const origin = request.headers.get("origin");
-  if (origin && new URL(origin).host !== request.headers.get("host")) {
+  if (isCrossOrigin(request)) {
     return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
   }
 

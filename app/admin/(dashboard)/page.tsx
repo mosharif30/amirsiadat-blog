@@ -1,27 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import PostsTable from "@/components/admin/PostsTable";
 import { cx, ui } from "@/components/admin/ui";
+import ViewStats, { ViewStatsSkeleton } from "@/components/admin/ViewStats";
+import { getPostViewCounts } from "@/lib/analytics";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Posts" };
 
 export default async function PostsPage() {
-  const posts = await db.post.findMany({
-    select: {
-      id: true,
-      title: true,
-      slug: true,
-      excerpt: true,
-      status: true,
-      publishedAt: true,
-      updatedAt: true,
-      readingMinutes: true,
-      featuredImage: { select: { url: true } },
-      categories: { select: { name: true }, orderBy: { position: "asc" } },
-    },
-    orderBy: [{ updatedAt: "desc" }],
-  });
+  const [posts, views] = await Promise.all([
+    db.post.findMany({
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        status: true,
+        publishedAt: true,
+        updatedAt: true,
+        readingMinutes: true,
+        featuredImage: { select: { url: true } },
+        categories: { select: { name: true }, orderBy: { position: "asc" } },
+      },
+      orderBy: [{ updatedAt: "desc" }],
+    }),
+    getPostViewCounts(),
+  ]);
 
   const rows = posts.map((post) => ({
     ...post,
@@ -29,6 +35,7 @@ export default async function PostsPage() {
     updatedAt: post.updatedAt.toISOString(),
     categories: post.categories.map((category) => category.name),
     cover: post.featuredImage?.url ?? null,
+    views: views.get(post.id) ?? 0,
   }));
 
   return (
@@ -45,6 +52,9 @@ export default async function PostsPage() {
           New post
         </Link>
       </div>
+      <Suspense fallback={<ViewStatsSkeleton />}>
+        <ViewStats />
+      </Suspense>
       <PostsTable posts={rows} />
     </div>
   );

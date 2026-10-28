@@ -9,8 +9,11 @@ import { SLUG_PATTERN, slugify } from "@/lib/slug";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
 
+const idSchema = z.string().min(1).max(64);
+const isNotFound = (error: unknown) => error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025";
+
 const categoryInput = z.object({
-  id: z.string().optional(),
+  id: idSchema.optional(),
   name: z.string().trim().min(1, "Name is required.").max(80),
   slug: z.string().trim().max(80).optional(),
 });
@@ -35,14 +38,17 @@ export async function saveCategory(input: z.input<typeof categoryInput>): Promis
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { ok: false, error: `The slug "${slug}" is already used by another category.` };
     }
+    if (isNotFound(error)) return { ok: false, error: "This category no longer exists." };
     throw error;
   }
   revalidatePath("/admin/categories");
   return { ok: true };
 }
 
-export async function moveCategory(id: string, direction: -1 | 1): Promise<ActionResult> {
+export async function moveCategory(categoryId: string, step: -1 | 1): Promise<ActionResult> {
   await requireAdmin();
+  const id = idSchema.parse(categoryId);
+  const direction = z.union([z.literal(-1), z.literal(1)]).parse(step);
   const categories = await db.category.findMany({ orderBy: [{ position: "asc" }, { createdAt: "asc" }] });
   const index = categories.findIndex((category) => category.id === id);
   const target = index + direction;
@@ -56,13 +62,16 @@ export async function moveCategory(id: string, direction: -1 | 1): Promise<Actio
   return { ok: true };
 }
 
-export async function deleteCategory(id: string): Promise<ActionResult> {
+export async function deleteCategory(categoryId: string): Promise<ActionResult> {
   await requireAdmin();
+  const id = idSchema.parse(categoryId);
   const count = await db.post.count({ where: { categories: { some: { id } } } });
   if (count > 0) {
     return { ok: false, error: `This category still has ${count} post${count === 1 ? "" : "s"}. Move them first.` };
   }
-  await db.category.delete({ where: { id } });
+  await db.category.delete({ where: { id } }).catch((error: unknown) => {
+    if (!isNotFound(error)) throw error;
+  });
   revalidatePath("/admin/categories");
   return { ok: true };
 }

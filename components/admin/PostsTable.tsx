@@ -17,6 +17,8 @@ export type PostRow = {
   readingMinutes: number;
   categories: string[];
   cover: string | null;
+  /** All-time page views. */
+  views: number;
 };
 
 const FILTERS = [
@@ -119,10 +121,15 @@ export default function PostsTable({ posts }: { posts: PostRow[] }) {
                     {post.categories.length > 0 && <span>{post.categories.join(", ")}</span>}
                     {post.publishedAt && <span>· {formatPostDate(post.publishedAt)}</span>}
                     <span>· {post.readingMinutes} min read</span>
+                    <span className="sm:hidden">· {post.views.toLocaleString("en-US")} views</span>
                   </p>
                 </div>
+                <p className="hidden w-20 flex-none text-right text-sm tabular-nums text-slate-700 sm:block" title="All-time views">
+                  {post.views.toLocaleString("en-US")}
+                  <span className="block text-xs text-slate-400">{post.views === 1 ? "view" : "views"}</span>
+                </p>
                 <div className="flex flex-none items-center gap-1">
-                  {post.status === "PUBLISHED" && (
+                  {post.status === "PUBLISHED" && !scheduled && (
                     <Link href={`/post/${post.slug}`} target="_blank" className={cx(ui.button, ui.ghost, "hidden px-2 md:inline-flex")}>
                       View
                     </Link>

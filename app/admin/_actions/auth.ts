@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { clearAttempts, isRateLimited, recordFailedAttempt } from "@/lib/auth/rate-limit";
 import { endSession, startSession } from "@/lib/auth/session";
+import { clientIp } from "@/lib/request";
 
 export type LoginState = { error?: string; email?: string };
 
@@ -29,7 +30,7 @@ export async function login(_state: LoginState, formData: FormData): Promise<Log
   const email = String(formData.get("email") ?? "");
   if (!parsed.success) return { error: "Enter your email and password.", email };
 
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = clientIp(await headers());
   const key = `${ip}|${parsed.data.email}`;
   if (isRateLimited(key)) return { error: "Too many failed attempts. Try again in 15 minutes.", email };
 

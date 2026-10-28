@@ -1,7 +1,11 @@
 import { formatPostDate } from "@/lib/format";
+import { extractHeadings } from "@/lib/markdown/headings";
 import type { PostDetailData } from "@/lib/posts";
+import { absoluteUrl } from "@/lib/site";
 import PostContent from "./PostContent";
 import PrismScope from "./PrismScope";
+import ShareLinks from "./ShareLinks";
+import TableOfContents from "./TableOfContents";
 
 const PostDetail = ({ post }: { post: PostDetailData }) => {
   return (
@@ -39,7 +43,9 @@ const PostDetail = ({ post }: { post: PostDetailData }) => {
           </div>
           <h1 className="mb-8 text-3xl font-semibold">{post.title}</h1>
 
+          <TableOfContents headings={extractHeadings(post.content)} />
           <PostContent markdown={post.content} images={post.images} />
+          <ShareLinks url={absoluteUrl(`/post/${post.slug}`)} title={post.title} />
         </PrismScope>
       </div>
     </div>

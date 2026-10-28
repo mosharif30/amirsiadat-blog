@@ -1,12 +1,14 @@
 /* eslint-disable react/no-unescaped-entities -- verbatim prose carried over from the original page */
 import type { Metadata } from "next";
 import Sidebar from "@/components/Sidebar";
+import { openGraph } from "@/lib/metadata";
 
 export const metadata: Metadata = {
   title: "Curriculum Vitae",
   description: "Amir Siadat – journalist, critic and curator of cinema: education, publications, awards and books.",
   alternates: { canonical: "/curriculum-vitae" },
-  openGraph: { url: "/curriculum-vitae", title: "Curriculum Vitae", images: ["/siadat2.JPG"] },
+  openGraph: openGraph({ url: "/curriculum-vitae", title: "Curriculum Vitae", images: ["/siadat2.JPG"] }),
+  twitter: { card: "summary_large_image", images: ["/siadat2.JPG"] },
 };
 
 export default function CurriculumVitae() {

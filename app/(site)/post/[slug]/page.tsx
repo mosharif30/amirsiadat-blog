@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import JsonLd from "@/components/JsonLd";
 import PostDetail from "@/components/PostDetail";
+import ReadingProgress from "@/components/ReadingProgress";
 import Sidebar from "@/components/Sidebar";
+import { defaultOgImage, openGraph } from "@/lib/metadata";
 import { getPostBySlug } from "@/lib/posts";
-import { absoluteUrl, site } from "@/lib/site";
+import { site } from "@/lib/site";
+import { blogPosting, breadcrumbs } from "@/lib/structured-data";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -21,13 +25,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         height: post.featuredImage.height ?? undefined,
         alt: post.featuredImage.alt || post.title,
       }
-    : undefined;
+    : defaultOgImage;
 
   return {
     title,
     description,
     alternates: { canonical: url },
-    openGraph: {
+    openGraph: openGraph({
       type: "article",
       url,
       title,
@@ -36,9 +40,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       modifiedTime: post.updatedAt.toISOString(),
       authors: [post.author?.name ?? site.author],
       section: post.categories[0]?.name,
-      images: image ? [image] : undefined,
-    },
-    twitter: { card: "summary_large_image", title, description, images: image ? [image.url] : undefined },
+      images: [image],
+    }),
+    twitter: { card: "summary_large_image", title, description, images: [image.url] },
     other: { "twitter:label1": "Reading time", "twitter:data1": `${post.readingMinutes} min read` },
   };
 }
@@ -47,27 +51,31 @@ export default async function PostPage({ params }: Props) {
   const post = await getPostBySlug((await params).slug);
   if (!post) notFound();
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BlogPosting",
-    headline: post.title,
-    description: post.excerpt,
-    image: post.featuredImage ? [absoluteUrl(post.featuredImage.url)] : undefined,
-    datePublished: post.publishedAt?.toISOString(),
-    dateModified: post.updatedAt.toISOString(),
-    author: { "@type": "Person", name: post.author?.name ?? site.author },
-    articleSection: post.categories[0]?.name,
-    wordCount: post.wordCount,
-    timeRequired: `PT${post.readingMinutes}M`,
-    mainEntityOfPage: absoluteUrl(`/post/${post.slug}`),
-  };
+  const category = post.categories[0];
+  const structuredData = [
+    blogPosting({
+      title: post.title,
+      excerpt: post.excerpt,
+      slug: post.slug,
+      publishedAt: post.publishedAt,
+      updatedAt: post.updatedAt,
+      wordCount: post.wordCount,
+      readingMinutes: post.readingMinutes,
+      image: post.featuredImage?.url ?? "/opengraph-image",
+      authorName: post.author?.name,
+      section: category?.name,
+    }),
+    breadcrumbs([
+      { name: site.name, path: "/" },
+      ...(category ? [{ name: category.name, path: `/category/${category.slug}` }] : []),
+      { name: post.title, path: `/post/${post.slug}` },
+    ]),
+  ];
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
-      />
+      <JsonLd data={structuredData} />
+      <ReadingProgress />
       <div className="container mx-auto px-0 mb-2 ">
         <div className="grid  grid-cols-1 lg:grid-cols-12 gap-3 ">
           <Sidebar place={post.categories[0]?.slug} />

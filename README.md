@@ -80,7 +80,8 @@ See [`.env.example`](.env.example).
 
 ## Admin dashboard (`/admin`)
 
-- **Posts**: list with instant search and Draft/Published filter; one-click publish/unpublish and delete.
+- **Posts**: page view summary (all-time, last 30 days, five most-read posts), then the post list
+  with views per post, instant search and Draft/Published filter; one-click publish/unpublish and delete.
 - **Editor**: a Word-like visual editor (TipTap). Text appears formatted as it will on the site, with
   no Markdown symbols. A sticky toolbar offers undo/redo, H2/H3, bold, italic, strikethrough,
   bulleted and numbered lists, quote, divider, link and image, plus alt text for a selected image.
@@ -90,7 +91,9 @@ See [`.env.example`](.env.example).
   edits. Also: slug generated from the title (editable, with "From title" to regenerate),
   excerpt, categories, cover image, featured flag, publish date
   (a future date schedules the post), SEO title and description, live word count and reading time,
-  and an unsaved-changes warning. Publishing requires an excerpt, a cover image and a category,
+  an inline warning (with a free alternative) when another post already uses the slug, a
+  "View live post" button, and an unsaved-changes prompt when closing the tab or following a link
+  away from the editor (the browser's Back button isn't intercepted). Publishing requires an excerpt, a cover image and a category,
   because the public cards always show them.
 - **Media**: upload (multiple, drag-and-drop), browse, filter, edit alt text, copy URL or Markdown,
   delete. Images still used by a post can't be deleted.
@@ -126,14 +129,22 @@ editor, so the editor looks like the published page.
 
 Beyond the pages themselves:
 
-- Per-page metadata: titles, descriptions, canonical URLs, OpenGraph and Twitter cards (with the
-  cover image and reading time), and `BlogPosting` JSON-LD on posts.
+- Per-page metadata: titles, descriptions, canonical URLs, OpenGraph and Twitter cards (the cover
+  image, or a generated branded preview from `app/opengraph-image.tsx`), and JSON-LD: `BlogPosting`
+  and `BreadcrumbList` on posts, `WebSite` + `Person` on the home page, `ProfilePage` on About.
+- Long posts: a thin reading-progress bar appears at the top while scrolling; posts with three or
+  more H2/H3 headings get a collapsible "Contents" list; every post ends with "Copy link" (and
+  "Share" where the browser has a native share sheet).
 - `/sitemap.xml`, `/robots.txt` and an RSS feed at `/feed.xml` (advertised in `<head>`).
 - Reading time and word count, computed on save (used in metadata, feed and dashboard).
 - Search (`/searchResult?searched=…`) runs in the database over title, excerpt, category and the
   full post text. Every word must match; title matches rank first.
 - Content is rendered on the server (no client-side fetching or loading flashes), unknown posts or
   categories return 404, and future-dated posts stay hidden until their date.
+- Page views are counted without cookies or third parties (`lib/tracking.ts`, `lib/analytics.ts`):
+  the browser reports the page to `/api/view`, which ignores bots, signed-in admins and unknown
+  pages, and stores one `PageView` row per page per visitor per day. The visitor key is a keyed
+  hash of IP, user agent and date, so IPs are never stored and visitors can't be followed across days.
 
 ## Project layout
 
@@ -142,20 +153,27 @@ app/
   (site)/            public pages: /, /post/[slug], /category/[slug], /searchResult, /about, /curriculum-vitae
   admin/             dashboard (login, posts, editor, media, categories, account) + server actions in _actions/
   api/admin/media/   image upload endpoint
+  api/view/          page view beacon
   api/health/        health check (used by Fly.io)
   uploads/[...path]/ serves uploaded files
   feed.xml/, sitemap.ts, robots.ts
 components/          public components, post-styles.ts, admin/* (admin/editor: visual editor)
 lib/                 db client, queries, auth, storage, markdown/ (editor ↔ Markdown conversion), helpers
 prisma/              schema, migrations, seed.ts, seed-data/ (site content + images)
-proxy.ts             early redirect for unauthenticated /admin requests
+proxy.ts             per-request CSP nonce + early redirect for unauthenticated /admin requests
 scripts/             create-admin, container entrypoint (docker-start.sh)
 tests/               Vitest
 ```
 
 Every admin page, server action and API route checks the session against the database. `proxy.ts`
 is only a first line of defence. Sessions are revoked by bumping `User.sessionVersion`. Logins are
-rate limited per IP and email.
+rate limited per IP and email (the IP comes from Fly.io's `Fly-Client-IP`, which clients can't forge).
+
+Security headers: pages get a nonce-based Content-Security-Policy from `proxy.ts` (`lib/csp.ts`), so
+only Next.js's own scripts run; API responses and uploads get a script-free CSP. `next.config.ts`
+adds `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`,
+`Cross-Origin-Opener-Policy` and, in production, HSTS. Because of the nonce, every page is rendered
+per request. Post HTML is sanitized with GitHub's rules (`lib/markdown/sanitize-schema.ts`).
 
 ## Uploads and storage
 

@@ -3,6 +3,7 @@ import Markdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import { rehypeHeadingIds } from "@/lib/markdown/headings";
 import { sanitizeSchema } from "@/lib/markdown/sanitize-schema";
 import { postStyles } from "./post-styles";
 
@@ -22,12 +23,17 @@ const isBlockImage = (node: Element | undefined) => {
 function createComponents(images: ImageDimensions): Components {
   return {
     h1: ({ children }) => <h1 className={postStyles.headings[1]}>{children}</h1>,
-    h2: ({ children }) => (
-      <h2 className={postStyles.headings[2]} style={{ color: postStyles.h2Color }}>
+    // h2/h3 ids are the table of contents anchors (lib/markdown/headings.ts).
+    h2: ({ children, id }) => (
+      <h2 id={id} className={postStyles.headings[2]} style={{ color: postStyles.h2Color }}>
         {children}
       </h2>
     ),
-    h3: ({ children }) => <h3 className={postStyles.headings[3]}>{children}</h3>,
+    h3: ({ children, id }) => (
+      <h3 id={id} className={postStyles.headings[3]}>
+        {children}
+      </h3>
+    ),
     h4: ({ children }) => <h4 className={postStyles.headings[4]}>{children}</h4>,
     blockquote: ({ children }) => <blockquote style={postStyles.blockquote}>{children}</blockquote>,
     ul: ({ children }) => <ul className={postStyles.bulletList}>{children}</ul>,
@@ -85,7 +91,7 @@ export default function PostContent({ markdown, images = {} }: PostContentProps)
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+      rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema], rehypeHeadingIds]}
       components={createComponents(images)}
     >
       {markdown}

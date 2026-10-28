@@ -1,17 +1,21 @@
 /* eslint-disable react/no-unescaped-entities -- verbatim prose carried over from the original page */
 import type { Metadata } from "next";
+import JsonLd from "@/components/JsonLd";
+import { openGraph } from "@/lib/metadata";
 import Sidebar from "@/components/Sidebar";
+import { person } from "@/lib/structured-data";
 
 export const metadata: Metadata = {
   title: "About",
   description: "About Amir Siadat, film critic from Iran, and this website.",
   alternates: { canonical: "/about" },
-  openGraph: { url: "/about", title: "About" },
+  openGraph: openGraph({ url: "/about", title: "About" }),
 };
 
 export default function About() {
   return (
     <div className="container mx-auto px-0 mb-2 ">
+      <JsonLd data={[{ "@type": "ProfilePage", mainEntity: person() }]} />
       <div className="grid  grid-cols-1 lg:grid-cols-12 gap-3">
         <Sidebar place="about" />
 

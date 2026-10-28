@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { deletePost, savePost, type PostInput, type SavePostResult } from "@/app/admin/_actions/posts";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { checkSlug, deletePost, savePost, type PostInput, type SavePostResult } from "@/app/admin/_actions/posts";
 import { readingStats } from "@/lib/content";
-import { slugify } from "@/lib/slug";
+import { SLUG_PATTERN, slugify } from "@/lib/slug";
 import RichTextEditor from "./editor/RichTextEditor";
 import MediaPicker from "./MediaPicker";
 import { StatusBadge } from "./PostsTable";
@@ -43,8 +43,11 @@ const toLocalInput = (iso: string | null) => {
 };
 const fromLocalInput = (value: string) => (value ? new Date(value).toISOString() : null);
 
+const LEAVE_MESSAGE = "You have unsaved changes. Leave without saving?";
+
 export default function PostEditor({ post: initial, categories, media: initialMedia }: PostEditorProps) {
   const router = useRouter();
+  const root = useRef<HTMLDivElement>(null);
   const [post, setPost] = useState(initial);
   const [saved, setSaved] = useState(initial);
   // New posts follow the title until the slug is edited by hand.
@@ -53,12 +56,15 @@ export default function PostEditor({ post: initial, categories, media: initialMe
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [slugConflict, setSlugConflict] = useState<{ slug: string; suggestion: string } | null>(null);
   const [pending, startTransition] = useTransition();
 
   const dirty = JSON.stringify(post) !== JSON.stringify(saved);
   const stats = useMemo(() => readingStats(post.content), [post.content]);
   const cover = media.find((item) => item.id === post.featuredImageId);
   const scheduled = post.status === "PUBLISHED" && !!post.publishedAt && new Date(post.publishedAt) > new Date();
+  const live = saved.status === "PUBLISHED" && !!saved.publishedAt && new Date(saved.publishedAt) <= new Date();
+  const slugTaken = slugConflict?.slug === post.slug ? slugConflict : null;
 
   const update = <K extends keyof EditorPost>(key: K, value: EditorPost[K]) => {
     setPost((current) => ({ ...current, [key]: value }));
@@ -68,9 +74,52 @@ export default function PostEditor({ post: initial, categories, media: initialMe
   useEffect(() => {
     if (!dirty) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    // In-app navigation doesn't fire beforeunload: ask before following links (and submitting
+    // forms such as "Sign out") outside the editor. Capturing on window runs before Next.js's handlers.
+    const cancel = (event: Event) => {
+      if (confirm(LEAVE_MESSAGE)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    const guardLink = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(link instanceof HTMLAnchorElement) || (link.target && link.target !== "_self") || link.hasAttribute("download")) {
+        return;
+      }
+      const url = new URL(link.href);
+      // Other sites load a new page (beforeunload asks); same-page anchors don't leave.
+      if (url.origin !== location.origin || (url.pathname === location.pathname && url.search === location.search)) return;
+      cancel(event);
+    };
+    const guardForm = (event: SubmitEvent) => {
+      if (event.target instanceof Node && root.current?.contains(event.target)) return;
+      cancel(event);
+    };
     window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
+    window.addEventListener("click", guardLink, true);
+    window.addEventListener("submit", guardForm, true);
+    return () => {
+      window.removeEventListener("beforeunload", warn);
+      window.removeEventListener("click", guardLink, true);
+      window.removeEventListener("submit", guardForm, true);
+    };
   }, [dirty]);
+
+  // Tell the author right away when another post already uses the slug.
+  useEffect(() => {
+    const slug = post.slug;
+    if (!SLUG_PATTERN.test(slug) || (post.id && slug === saved.slug)) return;
+    const timer = setTimeout(() => {
+      checkSlug(slug, post.id).then(
+        (result) => setSlugConflict(result.available ? null : { slug, suggestion: result.suggestion }),
+        () => {},
+      );
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [post.slug, post.id, saved.slug]);
 
   function save(status: EditorPost["status"] = post.status) {
     const input: PostInput = { ...post, status };
@@ -119,7 +168,7 @@ export default function PostEditor({ post: initial, categories, media: initialMe
   const onMediaUploaded = (item: MediaItem) => setMedia((current) => [item, ...current]);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div ref={root} className="mx-auto max-w-7xl">
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <Link href="/admin" className="text-sm text-slate-500 hover:text-slate-900">
@@ -129,10 +178,10 @@ export default function PostEditor({ post: initial, categories, media: initialMe
         <StatusBadge status={saved.status} scheduled={scheduled && saved.status === "PUBLISHED"} />
         {dirty && <span className="text-xs text-slate-500">Unsaved changes</span>}
         <div className="ml-auto flex flex-wrap gap-2">
-          {saved.status === "PUBLISHED" && post.id && (
-            <Link href={`/post/${saved.slug}`} target="_blank" className={cx(ui.button, ui.secondary)}>
-              View ↗
-            </Link>
+          {live && post.id && (
+            <a href={`/post/${saved.slug}`} target="_blank" rel="noopener" className={cx(ui.button, ui.secondary)}>
+              View live post ↗
+            </a>
           )}
           {post.status === "PUBLISHED" ? (
             <>
@@ -221,6 +270,13 @@ export default function PostEditor({ post: initial, categories, media: initialMe
             </div>
             {errors?.slug ? (
               <p className={ui.error}>{errors.slug}</p>
+            ) : slugTaken ? (
+              <p className={ui.error} role="alert">
+                Another post already uses this URL.{" "}
+                <button type="button" onClick={() => update("slug", slugTaken.suggestion)} className="underline">
+                  Use /post/{slugTaken.suggestion}
+                </button>
+              </p>
             ) : (
               <p className={ui.hint}>
                 {slugLocked ? "Edited manually." : "Generated from the title."}

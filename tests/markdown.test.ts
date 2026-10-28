@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import PostContent from "@/components/PostContent";
+import { extractHeadings } from "@/lib/markdown/headings";
 import { blocksToMarkdown, type BlockNode, type InlineNode, type Marks } from "@/lib/markdown/serialize";
 
 const p = (...content: InlineNode[]): BlockNode => ({ type: "paragraph", content });
@@ -100,6 +101,45 @@ describe("PostContent", () => {
   it("sanitizes dangerous HTML", () => {
     const html = render('<script>alert(1)</script>\n\n<img src="x" onerror="alert(1)">\n\n[x](javascript:alert(1))');
     expect(html).not.toMatch(/<script|onerror|javascript:/);
+  });
+
+  it.each([
+    '<a href="javascript:alert(1)">x</a>',
+    '<a href="JaVaScRiPt:alert(1)">x</a>',
+    '<a href="data:text/html;base64,PHNjcmlwdD4=">x</a>',
+    "[x](vbscript:msgbox)",
+    '<iframe src="https://evil.test"></iframe>',
+    '<svg><script>alert(1)</script></svg>',
+    '<p style="background:url(javascript:alert(1))" onclick="alert(1)">x</p>',
+    '<form action="https://evil.test"><input name="q"></form>',
+    '<object data="x"></object><embed src="x">',
+    '<math><mi xlink:href="javascript:alert(1)">x</mi></math>',
+    '<img src=x onerror=alert(1)//',
+    "[x](endrefjavascript:alert(1))",
+  ])("removes the attack in %s", (markdown) => {
+    const html = render(markdown);
+    // Escaped text (`&lt;img onerror=…`) is harmless; only real tags and attributes matter.
+    expect(html).not.toMatch(/<(script|iframe|form|object|embed|svg|math)|<[^>]*\son\w+=|javascript:|vbscript:|data:text|style="background/i);
+  });
+
+  it("keeps footnote anchors and legitimate links", () => {
+    const html = render("A claim.[\\[1\\]](endref1) See [Criterion](https://www.criterion.com/x) or <a href=\"mailto:a@b.c\">mail</a>.");
+    expect(html).toContain('<a id="endref1" href="#endref1p"');
+    expect(html).toContain('href="https://www.criterion.com/x"');
+    expect(html).toContain('href="mailto:a@b.c"');
+  });
+
+  it("gives h2/h3 headings ids that match the table of contents", () => {
+    const markdown = "## The Tramp\n\ntext\n\n### Early *years*\n\n## The Tramp\n\n<h2>سینمای ایران</h2>\n\n#### Not listed";
+    expect(extractHeadings(markdown)).toEqual([
+      { id: "the-tramp", text: "The Tramp", level: 2 },
+      { id: "early-years", text: "Early years", level: 3 },
+      { id: "the-tramp-2", text: "The Tramp", level: 2 },
+      { id: "سینمای-ایران", text: "سینمای ایران", level: 2 },
+    ]);
+    const html = render(markdown);
+    for (const id of ["the-tramp", "early-years", "the-tramp-2", "سینمای-ایران"]) expect(html).toContain(`id="${id}"`);
+    expect(extractHeadings("No headings, just # text")).toEqual([]);
   });
 
   it("renders fenced code for Prism", () => {

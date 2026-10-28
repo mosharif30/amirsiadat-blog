@@ -69,10 +69,13 @@ model Post {
   author          Author?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
   categories      Category[]
   comments        Comment[]
+  views           PageView[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   @@index([status, publishedAt])
+  @@index([featuredImageId])
+  @@index([authorId])
 }
 
 model Comment {
@@ -84,6 +87,8 @@ model Comment {
   postId    String?
   post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
+  @@index([postId])
 }
 
 /// Uploaded files. `key` is the path inside the storage backend, `url` is its public URL.
@@ -100,4 +105,22 @@ model Media {
   featuredIn   Post[]   @relation("PostFeaturedImage")
   authorPhotos Author[] @relation("AuthorPhoto")
   createdAt    DateTime @default(now())
+}
+
+/// Privacy-friendly page views (see lib/analytics.ts). No IP address or cookie is stored:
+/// `visitor` is a keyed hash of IP + user agent + day, so a visitor counts once per page per day
+/// and can't be followed from one day to the next.
+model PageView {
+  id        Int      @id @default(autoincrement())
+  path      String
+  /// Set for post pages; kept (as null) when the post is deleted so totals don't change.
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: SetNull)
+  visitor   String
+  createdAt DateTime @default(now())
+
+  @@unique([path, visitor])
+  @@index([path, createdAt])
+  @@index([postId, createdAt])
+  @@index([createdAt])
 }
