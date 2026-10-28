@@ -64,8 +64,8 @@ describe("blocksToMarkdown", () => {
       p(text("Claim"), text("[1]", {}, { href: "endref1" })),
       p(text("[1]", {}, { href: "endref1p" }), text(" Source")),
     );
-    expect(html).toContain('<a id="endref1" href="#endref1p" target="_self" style="color:blue" rel="noreferrer">[1]</a>');
-    expect(html).toContain('<a id="endref1p" href="#endref1" target="_self" style="color:blue" rel="noreferrer">[1]</a>');
+    expect(html).toContain('<a id="endref1" href="#endref1p" target="_self" style="color:#0a3d62;text-decoration:underline;text-underline-offset:3px" rel="noreferrer">[1]</a>');
+    expect(html).toContain('<a id="endref1p" href="#endref1" target="_self" style="color:#0a3d62;text-decoration:underline;text-underline-offset:3px" rel="noreferrer">[1]</a>');
   });
 
   it("renders images as standalone blocks and drops empty headings", () => {

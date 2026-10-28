@@ -14,3 +14,10 @@ export function formatPostDate(date: Date | string): string {
   );
   return `${parts.month} ${parts.day}, ${parts.year}`;
 }
+
+/** "1 post", "12 posts" */
+export const postCount = (count: number) => `${count} ${count === 1 ? "post" : "posts"}`;
+
+/** Heading note for a listing: "15 posts", or "15 posts · Page 2 of 2" once there are several pages. */
+export const pageNote = ({ total, page, pageCount }: { total: number; page: number; pageCount: number }) =>
+  pageCount > 1 ? `${postCount(total)} · Page ${page} of ${pageCount}` : postCount(total);

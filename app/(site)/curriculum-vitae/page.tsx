@@ -17,7 +17,7 @@ export default function CurriculumVitae() {
       <div className="grid  grid-cols-1 lg:grid-cols-12 gap-3">
         <Sidebar place="curriculum-vitae" />
 
-        <div className="grid   lg:col-span-9 col-span-1 ">
+        <div className="grid   lg:col-span-9 lg:ml-3 col-span-1 mt-4 lg:mt-0 px-3 sm:px-0">
           <div className="bg-customBlue text-white p-5 text-2xl my-1 mb-2">
             CURRICULUM VITAE
           </div>

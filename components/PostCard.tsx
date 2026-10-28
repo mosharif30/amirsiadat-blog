@@ -1,60 +1,35 @@
 import Link from "next/link";
-import { formatPostDate } from "@/lib/format";
 import type { PostCardData } from "@/lib/posts";
+import PostMeta from "./PostMeta";
 
 const PostCard = ({ post }: { post: PostCardData }) => {
   return (
     <Link
       href={`/post/${post.slug}`}
-      className="bg-white  cursor-pointer shadow-lg  p-0 lg:p-2 pb-1 mb-1 relative hover:bg-gray-300"
+      className="group flex flex-col bg-white shadow-md transition-shadow duration-300 hover:shadow-xl"
     >
-      <div className="relative overflow-hidden shadow-lg pb-52 mb-3 ">
+      <div className="relative aspect-video overflow-hidden bg-gray-100">
         {post.featuredImage && (
           // eslint-disable-next-line @next/next/no-img-element -- plain <img> keeps the original layout
           <img
             src={post.featuredImage.url}
-            alt={post.title}
-            className="object-top absolute h-52 w-full object-contain shadow-lg "
-          ></img>
+            alt=""
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
+          />
         )}
       </div>
-      <h1
-        className="transition duration-700 text-center mb-3 cursor-pointer text-gray-700
-       hover:text-gray-900 text-base "
-      >
-        {post.categories[0]?.name}
-      </h1>
-      <h1
-        className="transition duration-200 text-center mb-3  text-gray-700
-       hover:text-gray-900 text-xl font-medium"
-      >
-        {post.title}
-      </h1>
-      <div className="block lg:flex text-center items-center justify-center mb-3 w-full">
-        <div className="font-medium text-gray-900">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 inline mr-2 text-gray-900"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <span className="align-middle">{post.publishedAt && formatPostDate(post.publishedAt)}</span>
-        </div>
-      </div>
-      <div className="text-justify text-base text-gray-900 font-normal px-1 lg:px-2 mb-2 py-5">
-        {post.excerpt}{" "}
-        <span className=" text-center  inset-x-0 bottom-2">
-          <span className=" inline-block   text-gray-500 hover:text-gray-900 px-0 py-0 cursor-pointer ">
-            Continue Reading
-          </span>
+      <div className="flex flex-1 flex-col p-5 lg:p-6">
+        {post.categories[0] && (
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-customBlue">{post.categories[0].name}</p>
+        )}
+        <h2 className="mt-2 font-serif text-2xl font-semibold leading-snug text-gray-900 transition-colors group-hover:text-customBlue">
+          {post.title}
+        </h2>
+        <PostMeta post={post} className="mt-2" />
+        <p className="mt-4 line-clamp-5 font-serif text-[1.0625rem] leading-relaxed text-gray-700">{post.excerpt}</p>
+        <span className="mt-auto pt-4 text-sm font-medium text-gray-500 transition-colors group-hover:text-customBlue">
+          Continue reading <span aria-hidden="true">→</span>
         </span>
       </div>
     </Link>

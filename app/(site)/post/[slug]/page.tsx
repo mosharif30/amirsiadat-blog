@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import JsonLd from "@/components/JsonLd";
+import PostCard from "@/components/PostCard";
 import PostDetail from "@/components/PostDetail";
 import ReadingProgress from "@/components/ReadingProgress";
 import Sidebar from "@/components/Sidebar";
 import { defaultOgImage, openGraph } from "@/lib/metadata";
-import { getPostBySlug } from "@/lib/posts";
+import { getAdjacentPosts, getPostBySlug, getRelatedPosts } from "@/lib/posts";
 import { site } from "@/lib/site";
 import { blogPosting, breadcrumbs } from "@/lib/structured-data";
 
@@ -52,6 +53,10 @@ export default async function PostPage({ params }: Props) {
   if (!post) notFound();
 
   const category = post.categories[0];
+  const [{ older, newer }, related] = await Promise.all([
+    getAdjacentPosts(post),
+    getRelatedPosts({ id: post.id, categorySlug: category?.slug }),
+  ]);
   const structuredData = [
     blogPosting({
       title: post.title,
@@ -78,9 +83,21 @@ export default async function PostPage({ params }: Props) {
       <ReadingProgress />
       <div className="container mx-auto px-0 mb-2 ">
         <div className="grid  grid-cols-1 lg:grid-cols-12 gap-3 ">
-          <Sidebar place={post.categories[0]?.slug} />
-          <div className="col-span-1 lg:col-span-9 xl:col-span-10">
-            <PostDetail post={post} />
+          <Sidebar place={category?.slug} />
+          <div className="col-span-1 lg:col-span-9 xl:col-span-10 lg:ml-3 mt-4 lg:mt-0 px-3 sm:px-0">
+            <PostDetail post={post} older={older} newer={newer} />
+            {related.length > 0 && (
+              <section aria-labelledby="related-heading">
+                <h2 id="related-heading" className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-gray-500">
+                  More in {category.name}
+                </h2>
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {related.map((relatedPost) => (
+                    <PostCard key={relatedPost.id} post={relatedPost} />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         </div>
       </div>

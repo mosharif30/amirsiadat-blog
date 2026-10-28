@@ -1,55 +1,71 @@
-import { formatPostDate } from "@/lib/format";
+import Link from "next/link";
 import { extractHeadings } from "@/lib/markdown/headings";
 import type { PostDetailData } from "@/lib/posts";
 import { absoluteUrl } from "@/lib/site";
 import PostContent from "./PostContent";
+import PostMeta from "./PostMeta";
 import PrismScope from "./PrismScope";
 import ShareLinks from "./ShareLinks";
 import TableOfContents from "./TableOfContents";
 
-const PostDetail = ({ post }: { post: PostDetailData }) => {
-  return (
-    <div>
-      <div className="bg-white shadow-lg  lg:p-8 pb-12 mb-8">
-        <div className="relative overflow-hidden shadow-md mb-6">
-          {post.featuredImage && (
-            // eslint-disable-next-line @next/next/no-img-element -- plain <img> keeps the original layout
-            <img
-              src={post.featuredImage.url}
-              alt={post.featuredImage.alt ?? ""}
-              className="object-top h-full w-full object-cover  shadow-lg -t-lg lg:"
-            />
-          )}
-        </div>
-        <PrismScope className="px-5 lg:px-2 text-base  ">
-          <div className="flex items-center mb-8 w-full">
-            <div className="font-medium text-gray-700">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 inline mr-2 text-gray-900"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-              <span className="align-middle">{post.publishedAt && formatPostDate(post.publishedAt)}</span>
-            </div>
-          </div>
-          <h1 className="mb-8 text-3xl font-semibold">{post.title}</h1>
+type Neighbour = { slug: string; title: string } | null;
 
-          <TableOfContents headings={extractHeadings(post.content)} />
+const PostDetail = ({ post, older, newer }: { post: PostDetailData; older: Neighbour; newer: Neighbour }) => {
+  const category = post.categories[0];
+
+  return (
+    <article className="bg-white shadow-md mb-8">
+      {post.featuredImage && (
+        // eslint-disable-next-line @next/next/no-img-element -- plain <img> keeps the original layout
+        <img
+          src={post.featuredImage.url}
+          alt={post.featuredImage.alt ?? ""}
+          width={post.featuredImage.width ?? undefined}
+          height={post.featuredImage.height ?? undefined}
+          className="block h-auto w-full"
+        />
+      )}
+      <PrismScope className="mx-auto max-w-3xl px-5 py-8 lg:px-8 lg:py-12">
+        <header className="mb-8">
+          {category && (
+            <Link
+              href={`/category/${category.slug}`}
+              className="text-xs font-bold uppercase tracking-[0.15em] text-customBlue hover:underline"
+            >
+              {category.name}
+            </Link>
+          )}
+          <h1 className="mt-3 mb-3 font-serif text-3xl font-semibold leading-tight lg:text-[2.5rem]">{post.title}</h1>
+          <PostMeta post={post} />
+        </header>
+
+        <TableOfContents headings={extractHeadings(post.content)} />
+        <div className="font-serif text-lg leading-relaxed text-gray-800 lg:text-[1.1875rem]">
           <PostContent markdown={post.content} images={post.images} />
+        </div>
+        <div className="mt-4 border-t border-gray-200">
           <ShareLinks url={absoluteUrl(`/post/${post.slug}`)} title={post.title} />
-        </PrismScope>
-      </div>
-    </div>
+        </div>
+      </PrismScope>
+
+      {(older || newer) && (
+        <nav aria-label="More posts" className="grid border-t border-gray-200 sm:grid-cols-2">
+          {newer ? <NeighbourLink post={newer} label="← Newer" /> : <span />}
+          {older && <NeighbourLink post={older} label="Older →" align="right" />}
+        </nav>
+      )}
+    </article>
   );
 };
+
+const NeighbourLink = ({ post, label, align }: { post: { slug: string; title: string }; label: string; align?: "right" }) => (
+  <Link
+    href={`/post/${post.slug}`}
+    className={`group block px-5 py-5 transition-colors hover:bg-gray-50 lg:px-8 ${align === "right" ? "sm:text-right" : ""}`}
+  >
+    <span className="block text-xs font-bold uppercase tracking-[0.15em] text-gray-500">{label}</span>
+    <span className="mt-1 block font-serif text-lg leading-snug text-gray-900 group-hover:text-customBlue">{post.title}</span>
+  </Link>
+);
 
 export default PostDetail;

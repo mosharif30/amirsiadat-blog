@@ -5,33 +5,38 @@ import SearchInput from "./SearchInput";
 type CategoriesProps = {
   /** Slug of the active sidebar entry (category slug, "about" or "curriculum-vitae"). */
   place?: string;
+  query?: string;
 };
 
-// The original markup combined conflicting utilities (e.g. text-gray-200 + text-white) and relied
-// on Tailwind 3.1's CSS order to pick a winner. These are the colors it actually rendered,
-// spelled out so the result no longer depends on rule order.
+// A wrapped row of links on phones, the original right-aligned column from lg up.
 const itemClass = (active: boolean) =>
-  `font-bold cursor-pointer block p-2 mb-1 lg:mx-3  xl:text-base  lg:text-right ${
-    active ? "bg-white text-gray-500 hover:text-black" : "bg-customBlue text-gray-200 hover:text-white"
+  `block px-3 py-2 text-xs sm:text-sm lg:text-[0.8125rem] font-bold uppercase tracking-wider lg:tracking-wide transition-colors lg:mx-2 lg:mb-1 lg:text-right ${
+    active ? "bg-white text-customBlue" : "text-gray-200 hover:bg-white/10 hover:text-white"
   }`;
 
-const Categories = async ({ place }: CategoriesProps) => {
+const Categories = async ({ place, query }: CategoriesProps) => {
   const categories = await getCategories();
+  const items = [
+    ...categories.map((category) => ({ key: category.slug, href: `/category/${category.slug}`, name: category.name })),
+    { key: "curriculum-vitae", href: "/curriculum-vitae", name: "Curriculum Vitae" },
+    { key: "about", href: "/about", name: "About" },
+  ];
 
   return (
-    <div className="    lg:pt-3 pb-4 lg:mb-10  ">
-      <SearchInput />
-      {categories.map((category) => (
-        <Link key={category.slug} href={`/category/${category.slug}`} className={itemClass(place === category.slug)}>
-          {category.name}
-        </Link>
-      ))}
-      <Link href={`/curriculum-vitae`} className={itemClass(place === "curriculum-vitae")}>
-        CURRICULUM VITAE
-      </Link>
-      <Link href={`/about`} className={itemClass(place === "about")}>
-        ABOUT
-      </Link>
+    <div className="pb-3 lg:pt-3 lg:pb-4 lg:mb-10">
+      <SearchInput defaultValue={query} />
+      <nav aria-label="Sections" className="flex flex-wrap gap-1 px-2 lg:block lg:px-0">
+        {items.map((item) => (
+          <Link
+            key={item.key}
+            href={item.href}
+            className={itemClass(place === item.key)}
+            aria-current={place === item.key ? "page" : undefined}
+          >
+            {item.name}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 };
